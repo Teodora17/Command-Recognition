@@ -1,203 +1,111 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Apr 30 14:56:49 2020
-
-@author: ANDREI
-"""
-
-import h5py
 import os
-import librosa   #for audio processing
-import IPython.display as ipd
-import matplotlib.pyplot as plt
+import myDSP
 import numpy as np
-from scipy.io import wavfile #for audio processing
-import warnings
-from sklearn.preprocessing import LabelEncoder
-warnings.filterwarnings("ignore")
-
- 
-
-train_audio_path = 'C:/Users/ANDREI/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Anaconda3 (64-bit)/tensorflow-speech-recognition-challenge/sample_submission/train/audio/'
-samples, sample_rate = librosa.load(train_audio_path+'yes/0a7c2a8d_nohash_0.wav', sr = 16000)
-fig = plt.figure(figsize=(14, 8))
-ax1 = fig.add_subplot(211)
-ax1.set_title('Raw wave of ' + 'C:/Users/ANDREI/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Anaconda3 (64-bit)/tensorflow-speech-recognition-challenge/sample_submission/train/audio/yes/0a7c2a8d_nohash_0.wav')
-ax1.set_xlabel('time')
-ax1.set_ylabel('Amplitude')
-ax1.plot(np.linspace(0, sample_rate/len(samples), sample_rate), samples)
-
-labels=os.listdir(train_audio_path)
-
-#find count of each label and plot bar graph
-no_of_recordings=[]
-for label in labels:
-    waves = [f for f in os.listdir(train_audio_path + '/'+ label) if f.endswith('.wav')]
-    no_of_recordings.append(len(waves))
-    
-#plot
-plt.figure(figsize=(30,5))
-index = np.arange(len(labels))
-plt.bar(index, no_of_recordings)
-plt.xlabel('Commands', fontsize=12)
-plt.ylabel('No of recordings', fontsize=12)
-plt.xticks(index, labels, fontsize=15, rotation=60)
-plt.title('No. of recordings for each command')
-plt.show()
-
-labels=["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go"]
-
-
-all_wave = []
-all_label = []
-for label in labels:
-    print(label)
-    waves = [f for f in os.listdir(train_audio_path + '/'+ label) if f.endswith('.wav')]
-    for wav in waves:
-        samples, sample_rate = librosa.load(train_audio_path + '/' + label + '/' + wav, sr = 16000)
-        samples = librosa.resample(samples, sample_rate, 8000)
-        if(len(samples)== 8000) : 
-            all_wave.append(samples)
-            all_label.append(label)
-            
-
-le = LabelEncoder()
-y=le.fit_transform(all_label)
-classes= list(le.classes_)
-
-from keras.utils import np_utils
-y=np_utils.to_categorical(y, num_classes=len(labels))
-
- 
-
-all_wave = np.array(all_wave).reshape(-1,8000,1)
-
- 
-
- 
-
 from sklearn.model_selection import train_test_split
-x_tr, x_val, y_tr, y_val = train_test_split(np.array(all_wave),np.array(y),stratify=y,test_size = 0.2,random_state=777,shuffle=True)
-
- 
-
-
-from keras.layers import Dense, Dropout, Flatten, Conv1D, Input, MaxPooling1D
-from keras.models import Model
-from keras.callbacks import EarlyStopping, ModelCheckpoint
-from keras import backend as K
-K.clear_session()
-
- 
-
-inputs = Input(shape=(8000,1))
-
- 
-
-#First Conv1D layer
-conv = Conv1D(8,13, padding='valid', activation='relu', strides=1)(inputs)
-conv = MaxPooling1D(3)(conv)
-conv = Dropout(0.3)(conv)
-
- 
-
-#Second Conv1D layer
-conv = Conv1D(16, 11, padding='valid', activation='relu', strides=1)(conv)
-conv = MaxPooling1D(3)(conv)
-conv = Dropout(0.3)(conv)
-
- 
-
-#Third Conv1D layer
-conv = Conv1D(32, 9, padding='valid', activation='relu', strides=1)(conv)
-conv = MaxPooling1D(3)(conv)
-conv = Dropout(0.3)(conv)
-
- 
-
-#Fourth Conv1D layer
-conv = Conv1D(64, 7, padding='valid', activation='relu', strides=1)(conv)
-conv = MaxPooling1D(3)(conv)
-conv = Dropout(0.3)(conv)
-
- 
-
-#Flatten layer
-conv = Flatten()(conv)
-
- 
-
-#Dense Layer 1
-conv = Dense(256, activation='relu')(conv)
-conv = Dropout(0.3)(conv)
-
- 
-
-#Dense Layer 2
-conv = Dense(128, activation='relu')(conv)
-conv = Dropout(0.3)(conv)
-
- 
-
-outputs = Dense(len(labels), activation='softmax')(conv)
-
- 
-
-model = Model(inputs, outputs)
-model.summary()
-
- 
-
-
-model.compile(loss='categorical_crossentropy',optimizer='adam',metrics=['accuracy'])
-
- 
-
-def predict(audio):
-    prob=model.predict(audio.reshape(1,8000,1))
-    index=np.argmax(prob[0])
-    return classes[index]
-
- 
-
-
-import random
-index=random.randint(0,len(x_val)-1)
-samples=x_val[index].ravel()
-print("Audio:",classes[np.argmax(y_val[index])])
-ipd.Audio(samples, rate=8000)
-print("Text:",predict(samples))
-
- 
+from keras.models import Sequential
+from keras.layers import Dense
+import matplotlib.pyplot as plt
 
 import sounddevice as sd
 import soundfile as sf
 
+
+n_features = 16
+trainDir = 'train'
+
+
+def retInput(f1): # return the energy in the given bands
+    fs,y=myDSP.readWav(f1)
+    Y=abs(np.fft.fft(y))
+    Y=Y[0:int(len(Y)/2)]
+    
+    N=len(Y)
+    
+    bands=np.linspace(0, fs/2, n_features + 1) # in Hertz
+    energy=np.zeros(n_features)
+    bandLimits=(bands*N/(fs/2)).astype('int') # in samples
+    # 16 000 de esantioane si doar 8000 sunt bune
+    for index in range(n_features):
+        energy[index]=np.sum(Y[bandLimits[index]:bandLimits[index+1]]) #val absoluta in transf fourier
+    return(energy)
+    
+X = np.zeros(n_features)
+
+#start
+classes=os.listdir(trainDir)    # reading the dataset from the train directory
+
+T = np.zeros(len(classes))
+
+for i in range(len(classes)):
+    files = os.listdir(os.path.join(trainDir, classes[i]))  # read the recordings from the subdirectories using the list of classes
+    for j in range(len(files)):
+        #print(os.path.join(trainDir, classes[i], files[j]))
+        energy = retInput(os.path.join(trainDir, classes[i], files[j]))
+        print(energy)
+        X = np.vstack((X, energy)) # fiecare linie are 16 col care repr energia din benzi
+                                   # In the matrix X we store the energy, so it has sixteen columns that represent the energy from the bends.
+        newT = np.zeros(len(classes))
+        newT[i] = 1
+        T = np.vstack((T, newT))    # the 160 lines represent the value 1 allocated for each recording depending on the class it belongs to 
+
+plt.bar(np.arange(n_features),energy)
+
+X = np.delete(X,0,0)
+T = np.delete(T,0,0)
  
+n_classes=len(classes)
 
-samplerate = 16000  
-duration = 1 # seconds
-filename = 'yes.wav'
-print("start")
-mydata = sd.rec(int(samplerate * duration), samplerate=samplerate,
-    channels=1, blocking=True)
-print("end")
-sd.wait()
-sf.write(filename, mydata, samplerate)
-
- 
+X_train, X_test, T_train, T_test = train_test_split(X, T, test_size=0.2)
 
 
-os.listdir('C:/Users/ANDREI/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Anaconda3 (64-bit)/tensorflow-speech-recognition-challenge/sample_submission/voice_commands')
-filepath='C:/Users/ANDREI/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Anaconda3 (64-bit)/tensorflow-speech-recognition-challenge/sample_submission/voice_commands'
+model = Sequential()
+model.add(Dense(10, input_dim=n_features, activation='relu'))
+model.add(Dense(10, activation='relu'))
+model.add(Dense(n_classes, activation='sigmoid'))
 
- 
+# compile the keras model
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+# fit the keras model on the dataset
+net = model.fit(X_train, T_train, epochs=300)
+# evaluate the keras model
+_,accuracy = model.evaluate(X_test, T_test)
+print('Accuracy: %.2f' % (accuracy*100),'%')
 
-#reading the voice commands
-samples, sample_rate = librosa.load(filepath + '/' + 'stop.wav', sr = 16000)
-samples = librosa.resample(samples, sample_rate, 8000)
-ipd.Audio(samples,rate=8000)  
+#Here we record our voice:
+#plt.close('all')
+#print('Now it is time to read the words:')
+#samplerate = 16000  
+#duration = 1 # seconds
+#myFile = 'wow.wav'
+#print("start")
+#mydata = sd.rec(int(samplerate * duration), samplerate=samplerate,
+#    channels=1, blocking=True)
+#print("end")
+#sd.wait()
+#sf.write(myFile, mydata, samplerate)
+#
+#
+#os.listdir('E:/Anul3 (2019-2020)/Project')
+#filepath='E:/Anul3 (2019-2020)/Project'
+#fs2,x=myDSP.readWav(inreg)
 
- 
+#Here we plot the recording in frequency and time:
 
-predict(samples)
+#myDSP.plotInTime(x, fs2)
+#myDSP.plotInFrequency(x, fs2)
+
+print('The classes are:')
+print(classes)
+
+print('The energy for the recording is:')
+inreg = 'house.wav'
+myFileEnergy = retInput(inreg)
+print(myFileEnergy)
+myFileEnergy2 = np.zeros(len(classes))
+myFileEnergy = np.vstack((myFileEnergy, myFileEnergy2)) 
+myFileEnergy = np.delete(myFileEnergy,1,0)
+
+Y_test = model.predict(myFileEnergy)
+Y_test1=np.argmax(Y_test,axis=1)
+
+print('Argmax value is:', Y_test1, 'and the word is', classes[Y_test1[0]])
