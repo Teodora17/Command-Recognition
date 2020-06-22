@@ -24,9 +24,9 @@ def retInput(f1): # return the energy in the given bands
     bands=np.linspace(0, fs/2, n_features + 1) # in Hertz
     energy=np.zeros(n_features)
     bandLimits=(bands*N/(fs/2)).astype('int') # in samples
-    # 16 000 de esantioane si doar 8000 sunt bune
+    # 16,000 de esantioane si doar 8,000 sunt bune
     for index in range(n_features):
-        energy[index]=np.sum(Y[bandLimits[index]:bandLimits[index+1]]) #val absoluta in transf fourier
+        energy[index]=np.sum(Y[bandLimits[index]:bandLimits[index+1]]) # val absoluta in transf Fourier
     return(energy)
     
 X = np.zeros(n_features)
@@ -39,7 +39,7 @@ T = np.zeros(len(classes))
 for i in range(len(classes)):
     files = os.listdir(os.path.join(trainDir, classes[i]))  # read the recordings from the subdirectories using the list of classes
     for j in range(len(files)):
-        #print(os.path.join(trainDir, classes[i], files[j]))
+        print(os.path.join(trainDir, classes[i], files[j]))
         energy = retInput(os.path.join(trainDir, classes[i], files[j]))
         print(energy)
         X = np.vstack((X, energy)) # fiecare linie are 16 col care repr energia din benzi
@@ -63,36 +63,36 @@ model.add(Dense(10, input_dim=n_features, activation='relu'))
 model.add(Dense(10, activation='relu'))
 model.add(Dense(n_classes, activation='sigmoid'))
 
-# compile the keras model
+# compile the Keras model
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-# fit the keras model on the dataset
+# fit the Keras model on the dataset
 net = model.fit(X_train, T_train, epochs=300)
-# evaluate the keras model
+# evaluate the Keras model
 _,accuracy = model.evaluate(X_test, T_test)
 print('Accuracy: %.2f' % (accuracy*100),'%')
 
-#Here we record our voice:
-#plt.close('all')
-#print('Now it is time to read the words:')
-#samplerate = 16000  
-#duration = 1 # seconds
-#myFile = 'wow.wav'
-#print("start")
-#mydata = sd.rec(int(samplerate * duration), samplerate=samplerate,
-#    channels=1, blocking=True)
-#print("end")
-#sd.wait()
-#sf.write(myFile, mydata, samplerate)
-#
-#
-#os.listdir('E:/Anul3 (2019-2020)/Project')
-#filepath='E:/Anul3 (2019-2020)/Project'
-#fs2,x=myDSP.readWav(inreg)
+# Here we record our voice:
+plt.close('all')
+print('Now it is time to read the words:')
+samplerate = 16000  
+duration = 1 # seconds
+myFile = 'wow.wav'
+print("start")
+mydata = sd.rec(int(samplerate * duration), samplerate=samplerate,
+    channels=1, blocking=True)
+print("end")
+sd.wait()
+sf.write(myFile, mydata, samplerate)
 
-#Here we plot the recording in frequency and time:
 
-#myDSP.plotInTime(x, fs2)
-#myDSP.plotInFrequency(x, fs2)
+os.listdir('E:/Anul3 (2019-2020)/Project')
+filepath='E:/Anul3 (2019-2020)/Project'
+fs2,x=myDSP.readWav(inreg)
+
+# Here we plot the recording in frequency and time:
+
+myDSP.plotInTime(x, fs2)
+myDSP.plotInFrequency(x, fs2)
 
 print('The classes are:')
 print(classes)
