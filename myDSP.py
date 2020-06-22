@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sounddevice as sd
-#import soundcard as sc
+# import soundcard as sc
 from scipy.io import wavfile
 
 def mySine(A,f,theta0,t):
@@ -65,5 +65,3 @@ def record(t,fs):
 def readWav(fileName):
     # this returns sampling frequency and signal: fs,y = readWav(s)
     return(wavfile.read(fileName))
-    
-    
